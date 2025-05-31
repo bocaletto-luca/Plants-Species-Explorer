@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Plant Species Explorer</title>
+  <style>
+    /* Stili di base */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+    }
+    header {
+      background: #2E7D32;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    #container {
+      max-width: 1200px;
+      margin: 20px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 5px;
+    }
+    /* Sezione di ricerca */
+    .search-container {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .search-container label {
+      font-weight: bold;
+    }
+    .search-container input[type="text"] {
+      padding: 8px;
+      font-size: 1em;
+      flex: 1;
+      min-width: 250px;
+    }
+    .search-container button {
+      padding: 8px 12px;
+      font-size: 1em;
+      cursor: pointer;
+      background: #2E7D32;
+      color: white;
+      border: none;
+      border-radius: 3px;
+    }
+    /* Griglia dei risultati */
+    #results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .card:hover {
+      transform: scale(1.02);
+    }
+    .card h3 {
+      margin: 10px 0 5px;
+      font-size: 18px;
+      color: #2E7D32;
+    }
+    .card p {
+      font-size: 14px;
+      margin: 5px 0;
+      color: #555;
+    }
+    /* Paginazione */
+    .pagination {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .pagination button {
+      padding: 8px 12px;
+      margin: 0 5px;
+      font-size: 1em;
+      cursor: pointer;
+      background: #2E7D32;
+      color: white;
+      border: none;
+      border-radius: 3px;
+    }
+    .pagination span {
+      font-size: 1em;
+      margin: 0 10px;
+    }
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .modal-content {
+      background: #fff;
+      border-radius: 4px;
+      max-width: 600px;
+      width: 90%;
+      padding: 20px;
+      position: relative;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-content h2 {
+      margin-top: 0;
+      color: #2E7D32;
+    }
+    .modal-content p {
+      line-height: 1.5;
+      margin: 8px 0;
+    }
+    .modal-content .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Plant Species Explorer</h1>
+    <p>Esplora le specie vegetali in tutto il mondo – dati GBIF (open, gratuito e senza registrazioni)</p>
+  </header>
+  
+  <div id="container">
+    <!-- Barra di ricerca -->
+    <div class="search-container">
+      <label for="searchInput">Cerca per nome scientifico:</label>
+      <input type="text" id="searchInput" placeholder="es. Quercus, Pinus, Rosa...">
+      <button id="searchBtn">Cerca</button>
+    </div>
+    <!-- Risultati in griglia -->
+    <div id="results"></div>
+    <!-- Paginazione -->
+    <div class="pagination">
+      <button id="prevPage">Precedente</button>
+      <span id="pageInfo">Pagina 1</span>
+      <button id="nextPage">Successiva</button>
+    </div>
+  </div>
+  
+  <!-- Finestra modale per il dettaglio della specie -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="modalClose">&times;</span>
+      <div id="modalBody">
+        <!-- I dettagli della specie verranno mostrati qui -->
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Configurazione della paginazione
+    let currentPage = 1;
+    const limit = 20;
+    let totalCount = 0; // Totale risultati della query
+    let currentSpecies = []; // Array per memorizzare i risultati della ricerca
+
+    // Funzione per ottenere le specie vegetali dalla GBIF API
+    // Se "query" è vuoto, mostra un elenco generale (usando "q=")
+    async function fetchSpecies(query = "", page = 1) {
+      try {
+        const offset = (page - 1) * limit;
+        // Costruiamo la query per cercare solo nel regno Plantae.
+        // L’endpoint search di GBIF accetta parametri "q" e "kingdom=Plantae".
+        const url = `https://api.gbif.org/v1/species/search?kingdom=Plantae&limit=${limit}&offset=${offset}&q=${encodeURIComponent(query)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        totalCount = data.count;
+        return data.results;
+      } catch (error) {
+        console.error("Errore durante il fetch della specie:", error);
+        return [];
+      }
+    }
+
+    // Funzione per renderizzare le specie in griglia
+    async function renderSpecies() {
+      const resultsContainer = document.getElementById("results");
+      resultsContainer.innerHTML = "<p>Caricamento dati…</p>";
+      
+      const query = document.getElementById("searchInput").value.trim();
+      currentSpecies = await fetchSpecies(query, currentPage);
+      
+      if (!currentSpecies || currentSpecies.length === 0) {
+        resultsContainer.innerHTML = "<p>Nessuna specie trovata.</p>";
+        document.getElementById("pageInfo").textContent = "Pagina 0 di 0";
+        return;
+      }
+      
+      // Calcola il numero totale di pagine
+      const totalPages = Math.ceil(totalCount / limit);
+      document.getElementById("pageInfo").textContent = `Pagina ${currentPage} di ${totalPages}`;
+      // Abilitazione o disabilitazione dei bottoni di paginazione
+      document.getElementById("prevPage").disabled = currentPage <= 1;
+      document.getElementById("nextPage").disabled = currentPage >= totalPages;
+      
+      // Pulisce il container dei risultati
+      resultsContainer.innerHTML = "";
+      currentSpecies.forEach(species => {
+        // Mostriamo solo alcuni campi base (scientificName, canonicalName, e se presente familia)
+        const card = document.createElement("div");
+        card.className = "card";
+        // Se scientificName non è presente, usiamo canonicalName
+        const name = species.scientificName || species.canonicalName || "N/D";
+        const family = species.family || "Sconosciuta";
+        card.innerHTML = `
+          <h3>${name}</h3>
+          <p><strong>Famiglia:</strong> ${family}</p>
+          <p><strong>Rango:</strong> ${species.rank || "N/D"}</p>
+        `;
+        // Al click sulla card, apri il dettaglio
+        card.addEventListener("click", () => showDetail(species));
+        resultsContainer.appendChild(card);
+      });
+    }
+    
+    // Gestione degli eventi di ricerca
+    document.getElementById("searchBtn").addEventListener("click", () => {
+      currentPage = 1;
+      renderSpecies();
+    });
+    document.getElementById("searchInput").addEventListener("keyup", (e) => {
+      if(e.key === "Enter") {
+        currentPage = 1;
+        renderSpecies();
+      }
+    });
+    
+    // Gestione della paginazione
+    document.getElementById("prevPage").addEventListener("click", () => {
+      if(currentPage > 1) {
+        currentPage--;
+        renderSpecies();
+      }
+    });
+    document.getElementById("nextPage").addEventListener("click", () => {
+      // Calcola il numero totale di pagine
+      const totalPages = Math.ceil(totalCount / limit);
+      if(currentPage < totalPages) {
+        currentPage++;
+        renderSpecies();
+      }
+    });
+    
+    // Funzione per richiedere dettagli aggiuntivi di una specie tramite speciesKey
+    async function fetchSpeciesDetail(species) {
+      if (!species.key) return species;
+      try {
+        const response = await fetch(`https://api.gbif.org/v1/species/${species.key}`);
+        const detail = await response.json();
+        return { ...species, detail };
+      } catch (error) {
+        console.error("Errore nel fetch del dettaglio:", error);
+        return species;
+      }
+    }
+    
+    // Mostra il dettaglio della specie in una modal
+    async function showDetail(species) {
+      const speciesWithDetail = await fetchSpeciesDetail(species);
+      const detail = speciesWithDetail.detail || {};
+      // Costruiamo il contenuto del dettaglio con alcuni campi extra (per esempio, il nome scientifico, famiglia, ordine, classe, filum, ecc.)
+      let html = `<h2>${speciesWithDetail.scientificName || speciesWithDetail.canonicalName || "N/D"}</h2>`;
+      html += `<p><strong>Rango:</strong> ${speciesWithDetail.rank || "N/D"}</p>`;
+      if(speciesWithDetail.family) {
+        html += `<p><strong>Famiglia:</strong> ${speciesWithDetail.family}</p>`;
+      }
+      if(detail.order) {
+        html += `<p><strong>Ordine:</strong> ${detail.order}</p>`;
+      }
+      if(detail.class) {
+        html += `<p><strong>Classe:</strong> ${detail.class}</p>`;
+      }
+      if(detail.phylum) {
+        html += `<p><strong>Phylum:</strong> ${detail.phylum}</p>`;
+      }
+      if(detail.kingdom) {
+        html += `<p><strong>Regno:</strong> ${detail.kingdom}</p>`;
+      }
+      // In alternativa, visualizziamo l'intera struttura tassonomica se disponibile
+      const modalBody = document.getElementById("modalBody");
+      modalBody.innerHTML = html;
+      document.getElementById("modal").style.display = "flex";
+    }
+    
+    // Gestione della chiusura della modal
+    document.getElementById("modalClose").addEventListener("click", () => {
+      document.getElementById("modal").style.display = "none";
+    });
+    window.addEventListener("click", (e) => {
+      if(e.target === document.getElementById("modal")){
+        document.getElementById("modal").style.display = "none";
+      }
+    });
+    
+    // Inizializzazione: al caricamento, mostra alcune specie (query vuota fornisce risultati generali)
+    window.addEventListener("load", () => {
+      renderSpecies();
+    });
+  </script>
+</body>
+</html>
