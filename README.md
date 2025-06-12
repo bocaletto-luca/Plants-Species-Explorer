@@ -8,6 +8,8 @@
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 ![API](https://img.shields.io/badge/API-Free%20Open%20Data-9cf?style=flat-square&logo=treehouse)
 
+[![Test Online](https://img.shields.io/badge/Test%20Online-Click%20Here-brightgreen?style=for-the-badge)](https://bocaletto-luca.github.io/Plants-Species-Explorer/)
+
 ## 📌 Overview
 
 **Plants Species Explorer** is an interactive **web app** that allows users to **search and explore thousands of plant species**, providing **detailed scientific information, images, and classification data**. The app integrates **free open-data APIs** for accurate, real-time access to a vast database of plants.
